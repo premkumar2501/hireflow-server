@@ -14,10 +14,10 @@ class UserCreate(UserBase):
 
 
 class UserUpdate(BaseModel):
-    email: str = None
-    username: str = None
-    phoneNo: str = None
-    password: str | None = None
+    email: str | None = None
+    username: str | None = None
+    phoneNo: str | None = None
+    password: str | None = Field(default=None, min_length=8)
 
 
 class UserResponse(UserBase):
@@ -28,18 +28,4 @@ class UserResponse(UserBase):
     class Config:
         from_attributes = True
 
-
-class RegisterResponse(BaseModel):
-    user: UserResponse
-    verification_token: str
-
-
-class VerifyUser(BaseModel):
-    id: int
-    token: str
-
-
-class LoginRequest(BaseModel):
-    email: str
-    password: str
     

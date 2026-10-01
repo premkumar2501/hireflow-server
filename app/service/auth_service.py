@@ -7,7 +7,8 @@ from sqlalchemy.orm import Session
 from app.core.security import hash_password, verify_password
 from app.models.user import User
 from app.schema.token import RefreshRequest, TokenResponse
-from app.schema.user import LoginRequest, RegisterResponse, UserCreate, UserResponse, VerifyUser
+from app.schema.user import UserCreate, UserResponse
+from app.schema.auth import RegisterResponse, LoginRequest, VerifyUser
 from app.utils.token import (
     create_access_token,
     create_refresh_token,
@@ -44,20 +45,29 @@ def register(db: Session, user: UserCreate) -> RegisterResponse:
 
 def verify_user(user: VerifyUser, db: Session) -> UserResponse:
     user_email = verify_verification_token(user.token)
-    if user_email:
-        user_detail = get_exist_user(user_email, db)
-        user_detail.is_varify = True
-        db.commit()
-        db.refresh(user_detail)
-        return user_detail
+    user_detail = get_exist_user(user_email, db)
+    if not user_detail:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="User not found.")
+
+    user_detail.is_varify = True
+    user_detail.is_active = True
+    db.commit()
+    db.refresh(user_detail)
+    return user_detail
         
 def login(credentials: LoginRequest, db: Session):
     user = db.query(User).filter(User.email == credentials.email).first()
 
-    if not user or not verify_password(credentials.password, user.hashed_password):
+    if not user or not verify_password(credentials.password, user.password):
         raise HTTPException(
             status_code=status.HTTP_401_UNAUTHORIZED,
             detail={"code": "INVALID_CREDENTIALS", "message": "Incorrect email or password."},
+        )
+
+    if not user.is_varify or not user.is_active:
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail="Verify your account before logging in.",
         )
 
     access_token = create_access_token(user.id)
